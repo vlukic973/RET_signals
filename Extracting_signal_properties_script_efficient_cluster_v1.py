@@ -20,7 +20,6 @@ window_size=400
 sample_rate=5
 len_signal=window_size*sample_rate
 n_samples=990
-# Note it can happen that the len_signal can be 1999, instead of 2000 - need to sort this out
         
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -91,7 +90,7 @@ def read_time_vals(path,file):
     time_vals= pd.read_csv(path+file, skiprows=0,header=None)
     return np.asarray(time_vals).reshape(len_signal,)
     
-sorted_file_list,data_list=read_signal_files(path,files,n_samples)
+sorted_file_list,data_list=read_signal_files(path,files)
     
 n_rec=len(sorted_file_list)
 data_list_all=[]
@@ -108,20 +107,6 @@ dirs_fillbyEvent0=pd.read_csv('/Users/vesnalukic/Desktop/Reconstruction/four_rec
 xdir=dirs_fillbyEvent0[1][0:n_samples]
 ydir=dirs_fillbyEvent0[2][0:n_samples]
 zdir=dirs_fillbyEvent0[3][0:n_samples]
-
-df_list=[]
-
-for i in range(0,data.shape[0]):
-    print(i)
-    df_list.append(np.asarray([int_array[i],arrival_at_recs[i],peakfreqs[i],rise_time[i],fall_time[i],bandwidths[i],max_amp_freqs[i],max_amp_freqs[i],half_amp_freqs[i],at_amp_freqs[i],twice_amp_freqs[i]]))
-
-l = np.vstack(df_list)
-
-all_df=pd.DataFrame(l.T)
-
-all_df['xdir']=xdir
-all_df['ydir']=ydir
-all_df['zdir']=zdir
  
 # Read in time file
 
