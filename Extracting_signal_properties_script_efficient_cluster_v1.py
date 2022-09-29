@@ -7,19 +7,6 @@ import pickle
 import glob
 import os
 import re
-
-# Path to signal files
-path='/Users/vesnalukic/Desktop/Reconstruction/'
-
-# Search string for files. There are 4 text files corresponding to the search string below, containing the voltage-time traces from 4
-# receivers, 1000 total runs, with constant position at (0,0,0), Energy = 10 PeV, varying direction isotropically
-files = '*_numbers_only2.txt'
-
-# Set window size that was used for RadioScatter
-window_size=400
-sample_rate=5
-len_signal=window_size*sample_rate
-n_samples=990
         
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -89,44 +76,6 @@ def read_time_vals(path,file):
     """
     time_vals= pd.read_csv(path+file, skiprows=0,header=None)
     return np.asarray(time_vals).reshape(len_signal,)
-    
-sorted_file_list,data_list=read_signal_files(path,files)
-    
-n_rec=len(sorted_file_list)
-data_list_all=[]
-
-for i in range(0,n_rec):
-    data_list_all.append(pad_data(data_list[i],n_samples))
- 
-data=convert_to_3D_array(data_list_all)
-
-######### Read in file containing directions
-
-dirs_fillbyEvent0=pd.read_csv('/Users/vesnalukic/Desktop/Reconstruction/four_recs_rand_dir.csv', skiprows=1,header=None)
-
-xdir=dirs_fillbyEvent0[1][0:n_samples]
-ydir=dirs_fillbyEvent0[2][0:n_samples]
-zdir=dirs_fillbyEvent0[3][0:n_samples]
- 
-# Read in time file
-
-time_file='four_receivers_change_dir_fillbyEvent0_manual_1000_50MHz_10_events_to_run_100_GeV_primary_best_dir_sim_10_PeV_400ns_window_vpol_time.txt'
-
-time_vals=read_time_vals(path,time_file)
-
-time_path=path
-
-time_vals=read_time_vals(time_path,time_file)
-
-###### Already set threshold values
-
-thres_arr_time=0.3
-thres_bandwidth=0.05
-n=data.shape[2]
-T=1/sample_rate
-thres1=0.3
-thres2=0.3
-tf=0.05
 
 ###### Generate the signal properties
 
@@ -330,23 +279,78 @@ def plot_properties(property,property_name,save_path,begin_rec,last_rec):
     plt.tight_layout()
     plt.savefig(save_path + property_name + '_rec' + str(begin_rec)+'_'+str(last_rec)+'.png')
     plt.close()
-           
+
+if __name__ == "__main__":
+    import os
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Plot signal properties vs direction")
+    parser.add_argument('--save_path', default='/Users/vesnalukic/Desktop/Reconstruction/')
+    parser.add_argument('--signal_files', default='*_numbers_only2.txt')
+    parser.add_argument('--time_file', default='four_receivers_change_dir_fillbyEvent0_manual_1000_50MHz_10_events_to_run_100_GeV_primary_best_dir_sim_10_PeV_400ns_window_vpol_time.txt')
+    parser.add_argument('--directions', default='four_recs_rand_dir.csv')
+    parser.add_argument('--thres_arr_time', default=0.3,type=float)
+    parser.add_argument('--thres_bandwidth', default=0.05, type=float)
+    parser.add_argument('--window_size', default=400,type=int)
+    parser.add_argument('--sample_rate', default=5,type=int)
+    parser.add_argument('--thres1', default=0.3,type=float)
+    parser.add_argument('--thres2', default=0.3,type=float)
+    parser.add_argument('--tf', default='0.05',type=float)
+    parser.add_argument('--n_samples', default='990',type=int)
+
+    args = parser.parse_args()
+    print(args)
+
+    if not os.path.exists(args.save_path):
+        os.makedirs(args.save_path)
+
+len_signal=args.window_size*args.sample_rate
+          
+print('Reading in signal files:')
+sorted_file_list,data_list=read_signal_files(args.save_path,args.signal_files)
+    
+n_rec=len(sorted_file_list)
+data_list_all=[]
+
+for i in range(0,n_rec):
+    data_list_all.append(pad_data(data_list[i],args.n_samples))
+ 
+data=convert_to_3D_array(data_list_all)
+
+print('Reading in directions')
+dirs_fillbyEvent0=pd.read_csv(args.save_path+args.directions, skiprows=1,header=None)
+
+xdir=dirs_fillbyEvent0[1][0:args.n_samples]
+ydir=dirs_fillbyEvent0[2][0:args.n_samples]
+zdir=dirs_fillbyEvent0[3][0:args.n_samples]
+ 
+# Read in time file
+
+#time_file='four_receivers_change_dir_fillbyEvent0_manual_1000_50MHz_10_events_to_run_100_GeV_primary_best_dir_sim_10_PeV_400ns_window_vpol_time.txt'
+
+print('Reading in time file')
+time_vals=read_time_vals(args.save_path,args.time_file)
+
+n=data.shape[2]
+T=1/args.sample_rate
+
 int_array=intensity(data)
-arrival_at_recs=arrival_rec(data,thres_arr_time,time_vals)
-peakfreqs=peakFreq(data,sample_rate)
-rise_time,fall_time=rise_fall_time(data,time_vals,thres1,thres2)
-bandwidths=bandwidth_recs(data,sample_rate,thres_bandwidth)
-max_amp_freqs,half_amp_freqs,at_amp_freqs,twice_amp_freqs=fft_amps(data,sample_rate,tf)
+arrival_at_recs=arrival_rec(data,args.thres_arr_time,time_vals)
+peakfreqs=peakFreq(data,args.sample_rate)
+rise_time,fall_time=rise_fall_time(data,time_vals,args.thres1,args.thres2)
+bandwidths=bandwidth_recs(data,args.sample_rate,args.thres_bandwidth)
+max_amp_freqs,half_amp_freqs,at_amp_freqs,twice_amp_freqs=fft_amps(data,args.sample_rate,args.tf)
            
-plot_properties(int_array,'Intensity_n_1p78_zpol',path,1,5)
-plot_properties(arrival_at_recs,'Arrival_time_n_1p78_zpol',path,1,5)
-plot_properties(peakfreqs,'peakFreq_n_1p78_zpol',path,1,5)
-plot_properties(rise_time,'Rise_time_n_1p78_zpol',path,1,5)
-plot_properties(fall_time,'Fall_time_n_1p78_zpol',path,1,5)
-plot_properties(bandwidths,'Bandwidth_n_1p78_zpol',path,1,5)
-plot_properties(max_amp_freqs,'Max_fft_amplitude_n_1p78_zpol',path,1,5)
-plot_properties(half_amp_freqs,'Amplitude_at_0.5tf_n_1p78_zpol',path,1,5)
-plot_properties(at_amp_freqs,'Amplitude_at_tf_n_1p78_zpol',path,1,5)
-plot_properties(twice_amp_freqs,'Amplitude_at_2tf_n_1p78_zpol',path,1,5)
+print('Plotting properties')
+plot_properties(int_array,'Intensity_n_1p78_zpol',args.save_path,1,5)
+plot_properties(arrival_at_recs,'Arrival_time_n_1p78_zpol',args.save_path,1,5)
+plot_properties(peakfreqs,'peakFreq_n_1p78_zpol',args.save_path,1,5)
+plot_properties(rise_time,'Rise_time_n_1p78_zpol',args.save_path,1,5)
+plot_properties(fall_time,'Fall_time_n_1p78_zpol',args.save_path,1,5)
+plot_properties(bandwidths,'Bandwidth_n_1p78_zpol',args.save_path,1,5)
+plot_properties(max_amp_freqs,'Max_fft_amplitude_n_1p78_zpol',args.save_path,1,5)
+plot_properties(half_amp_freqs,'Amplitude_at_0.5tf_n_1p78_zpol',args.save_path,1,5)
+plot_properties(at_amp_freqs,'Amplitude_at_tf_n_1p78_zpol',args.save_path,1,5)
+plot_properties(twice_amp_freqs,'Amplitude_at_2tf_n_1p78_zpol',args.save_path,1,5)
 
-
+print('Done!')
