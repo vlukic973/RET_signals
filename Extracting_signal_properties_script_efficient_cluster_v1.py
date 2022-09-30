@@ -7,6 +7,23 @@ import pickle
 import glob
 import os
 import re
+import random
+        
+import sklearn
+from sklearn import ensemble
+from sklearn.linear_model import LinearRegression
+import tensorflow
+import tensorflow.keras
+from keras.layers.core import Activation, Dropout, Dense
+from tensorflow.keras.layers import Activation, Dropout, Dense
+from keras.layers import Flatten, LSTM
+from keras.layers import GlobalMaxPooling1D
+from keras.models import Model
+from keras.layers.embeddings import Embedding
+from sklearn.model_selection import train_test_split
+from tensorflow.keras import layers, models
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.callbacks import EarlyStopping
         
 def atoi(text):
     return int(text) if text.isdigit() else text
@@ -280,12 +297,460 @@ def plot_properties(property,property_name,save_path,begin_rec,last_rec):
     plt.savefig(save_path + property_name + '_rec' + str(begin_rec)+'_'+str(last_rec)+'.png')
     plt.close()
 
+def fit_predict_norm(mod, x, y, train_prop):
+    """
+    Fits a built-in model on the training and validation data and makes predictions on the validation data
+    
+    Args: mod (the model to use)
+          x (Data frame containing predictor variables)
+          y (Data frame containing outcome variable)
+          train_prop (float, fraction of samples to use for training)
+    
+    Returns: mean squared error, validation labels, validation predictions
+    
+    """
+    x_train, x_valid, y_train, y_valid = train_test_split(x, y, train_size = train_prop, random_state =  90)
+    mod.fit(x_train,y_train)
+    training_predictions = mod.predict(x_train)
+    valid_predictions = mod.predict(x_valid)
+    training_labels = y_train
+    validation_labels = y_valid
+    return sklearn.metrics.mean_squared_error(validation_labels,valid_predictions),np.asarray(validation_labels),valid_predictions
+    
+def fit_predict_norm_NN(mod, x, y, train_prop, epochs=100, batch_size=64):
+    """
+    Fits a manually constructed NN model
+    
+    Args: mod (the model to use)
+          x (Data frame containing predictor variables)
+          y (Data frame containing outcome variable)
+          train_prop (fraction of samples to use for training)
+          dir (string, the direction being trained on)
+          epochs (int, The total number of epochs of training)
+          batch_size (int, How many samples in a batch)
+    
+    Returns: mean squared error, validation labels, validation predictions, training loss, validation loss
+    
+    """
+    x_train, x_valid, y_train, y_valid = train_test_split(x, y, train_size = train_prop, random_state =  90)
+    es = tensorflow.keras.callbacks.EarlyStopping(monitor='val_loss', patience = 10)
+    history=mod.fit(x_train,y_train, validation_data=[x_valid,y_valid], batch_size=batch_size,epochs=epochs,verbose=1,callbacks=[es])
+    training_predictions = mod.predict(x_train)
+    valid_predictions = mod.predict(x_valid)
+    training_labels = y_train
+    validation_labels = y_valid
+    return sklearn.metrics.mean_squared_error(validation_labels,valid_predictions),np.asarray(validation_labels),valid_predictions,history.history['loss'],history.history['val_loss']
+
+def create_nn(a1):
+    model = models.Sequential()
+    model.add(Dense(a1.shape[1], input_dim=a1.shape[1], kernel_initializer=tensorflow.keras.initializers.lecun_uniform(), activation='relu'))
+    model.add(Dense(5, kernel_initializer=tensorflow.keras.initializers.lecun_uniform(),activation='relu'))
+    model.add(Dense(50, kernel_initializer=tensorflow.keras.initializers.lecun_uniform(),activation='relu'))
+    model.add(Dense(100, kernel_initializer=tensorflow.keras.initializers.lecun_uniform(),activation='relu'))
+    #model.add(Dropout(0.25))
+    model.add(Dense(300, kernel_initializer=tensorflow.keras.initializers.lecun_uniform(),activation='relu'))
+    #model.add(Dense(100, kernel_initializer=tensorflow.keras.initializers.lecun_uniform(),activation='relu'))
+    model.add(Dense(50, kernel_initializer=tensorflow.keras.initializers.lecun_uniform(),activation='relu'))
+    #model.add(Dense(300, kernel_initializer=tensorflow.keras.initializers.lecun_uniform(),activation='relu'))
+    model.add(Dense(10, kernel_initializer=tensorflow.keras.initializers.lecun_uniform(),activation='relu'))
+    model.add(Dense(1,activation='linear'))
+    model.compile(loss='mse', optimizer='Rmsprop', metrics=['mse'])
+    return model
+
+def reconstruct(data,n_iter_all,n_epochs,batchsize,save_path,NN_train_val_loss,reconstruction_plot):
+    """
+    Performs training and validation, fits the trained model to the data to predict direction using linear regression and GBM (default settings), as well as a NN.
+    Each ML model predicts x,y and z separately. These are then converted to theta and phi via the spherical coordinate transformation. The reconstruction accuracy
+    is quantified by the opening angle alpha - the dot product of the real and reconstructed direction.
+    
+    Args: data (the normalised input data containing the predictor and outcomes variables.)
+          n_iter_all (How many times to fit the models to the data)
+          n_iter_NN (How many times to iterate through the neural network)
+    
+    Returns: lists of mean of means, means of std, etc
+    
+    """
+    linreg_theta_mean_list=[]
+    GBM_theta_mean_list=[]
+    NN_theta_mean_list=[]
+    linreg_theta_std_list=[]
+    GBM_theta_std_list=[]
+    NN_theta_std_list=[]
+    linreg_phi_mean_list=[]
+    GBM_phi_mean_list=[]
+    NN_phi_mean_list=[]
+    linreg_phi_std_list=[]
+    GBM_phi_std_list=[]
+    NN_phi_std_list=[]
+    linreg_theta_diff_list=[]
+    GBM_theta_diff_list=[]
+    NN_theta_diff_list=[]
+    linreg_phi_diff_list=[]
+    GBM_phi_diff_list=[]
+    NN_phi_diff_list=[]
+    linreg_alpha_mean_list=[]
+    GBM_alpha_mean_list=[]
+    NN_alpha_mean_list=[]
+    linreg_alpha_std_list=[]
+    GBM_alpha_std_list=[]
+    NN_alpha_std_list=[]
+    invalid_linreg_theta=[]
+    invalid_GBM_theta=[]
+    invalid_NN_theta=[]
+    invalid_linreg_phi=[]
+    invalid_GBM_phi=[]
+    invalid_NN_phi=[]
+    invalid_alpha_linreg=[]
+    invalid_alpha_GBM=[]
+    invalid_alpha_NN=[]
+    alpha_GBM_list=[]
+    alpha_NN_list=[]
+    alpha_linreg_list=[]
+    for j in range(0,n_iter_all):
+        print(j)
+        data_trunc=data
+        data_trunc=data_trunc.sample(frac=1)
+        GBM_reg0 = sklearn.ensemble.GradientBoostingRegressor()
+        lin_reg0 = LinearRegression()
+        GBM_reg1 = sklearn.ensemble.GradientBoostingRegressor()
+        lin_reg1 = LinearRegression()
+        GBM_reg2 = sklearn.ensemble.GradientBoostingRegressor()
+        lin_reg2 = LinearRegression()
+        np.sum(np.isinf(data_trunc))
+        np.sum(np.isnan(data_trunc))
+        sc = sklearn.preprocessing.StandardScaler()
+        data_norm = sc.fit_transform(data_trunc)
+        data_norm = pd.DataFrame(data_norm, index=data_trunc.index, columns=data_trunc.columns)
+        data_trunc1 = data_trunc
+        trainingx_norm_col = data_norm
+        n_samples_view=20
+        train_prop=0.8
+        #es = tensorflow.keras.callbacks.EarlyStopping(monitor='val_loss', patience = 10)
+        #print(es)
+        n=np.int(train_prop*len(data_norm))
+        #x1 = data_norm.iloc[:,:(n_rec*df_list[0].shape[0]-1)][0:n]
+        x1 = data_norm.iloc[:,:(data_norm.shape[1]-3)][0:n]
+        #x1 = data_norm.iloc[:,:(data_norm.shape[1])][0:n]
+        y1 = data_norm.loc[:,'xdir'][0:n]
+        y2 = data_norm.loc[:,'ydir'][0:n]
+        y3 = data_norm.loc[:,'zdir'][0:n]
+        #x2 = data_norm.iloc[:,:(n_rec*df_list[0].shape[0]-1)][n:data_norm.shape[0]]
+        x2 = data_norm.iloc[:,:(data_norm.shape[1]-3)][n:data_norm.shape[0]]
+        #x2 = data_norm.iloc[:,:(data_norm.shape[1])][n:data_norm.shape[0]]
+        y4 = data_norm.loc[:,'xdir'][n:int(data_norm.shape[0])] ### test solutions
+        y5 = data_norm.loc[:,'ydir'][n:int(data_norm.shape[0])] ### test solutions
+        y6 = data_norm.loc[:,'zdir'][n:int(data_norm.shape[0])] ### test solutions
+        np.sum(np.isinf(data_norm))
+        np.sum(np.isnan(data_norm))
+        mse_NN_list_norm1=list()
+        valid_predictions_NN_list_norm1=list()
+        modelnn1=create_nn(x1)
+        mse_NN_norm1,validation_labels_norm1,valid_predictions_NN_norm1,train_loss_x,valid_loss_x=fit_predict_norm_NN(modelnn1,x1,y1,train_prop,n_epochs,batchsize)
+        mse_NN_list_norm1.append(mse_NN_norm1)
+        valid_predictions_NN_list_norm1.append(valid_predictions_NN_norm1)
+        mse_NN_list_norm2=list()
+        valid_predictions_NN_list_norm2=list()
+        #for i in range(0,n_iter_NN):
+        modelnn2=create_nn(x1)
+        mse_NN_norm2,validation_labels_norm2,valid_predictions_NN_norm2,train_loss_y,valid_loss_y=fit_predict_norm_NN(modelnn2,x1,y2,train_prop,n_epochs,batchsize)
+        mse_NN_list_norm2.append(mse_NN_norm2)
+        valid_predictions_NN_list_norm2.append(valid_predictions_NN_norm2)
+        mse_NN_list_norm3=list()
+        valid_predictions_NN_list_norm3=list()
+        modelnn3=create_nn(x1)
+        mse_NN_norm3,validation_labels_norm3,valid_predictions_NN_norm3,train_loss_z,valid_loss_z=fit_predict_norm_NN(modelnn3,x1,y3,train_prop,n_epochs,batchsize)
+        mse_NN_list_norm3.append(mse_NN_norm3)
+        valid_predictions_NN_list_norm3.append(valid_predictions_NN_norm3)
+        train_prop=0.8
+        mse_GBM_norm1,validation_labels_norm1,valid_predictions_GBM_norm1=fit_predict_norm(GBM_reg0,x1,y1,train_prop)
+        mse_linreg_norm1,validation_labels_norm1,valid_predictions_linreg_norm1=fit_predict_norm(lin_reg0,x1,y1,train_prop)
+        mse_GBM_norm2,validation_labels_norm2,valid_predictions_GBM_norm2=fit_predict_norm(GBM_reg1,x1,y2,train_prop)
+        mse_linreg_norm2,validation_labels_norm2,valid_predictions_linreg_norm2=fit_predict_norm(lin_reg1,x1,y2,train_prop)
+        mse_GBM_norm3,validation_labels_norm3,valid_predictions_GBM_norm3=fit_predict_norm(GBM_reg2,x1,y3,train_prop)
+        mse_linreg_norm3,validation_labels_norm3,valid_predictions_linreg_norm3=fit_predict_norm(lin_reg2,x1,y3,train_prop)
+        GBM_test_predictions_x=GBM_reg0.predict(x2)
+        linreg_test_predictions_x=lin_reg0.predict(x2)
+        neuralnet_predictions_x=modelnn1.predict(x2)
+        GBM_test_predictions_y=GBM_reg1.predict(x2)
+        linreg_test_predictions_y=lin_reg1.predict(x2)
+        neuralnet_predictions_y=modelnn2.predict(x2)
+        GBM_test_predictions_z=GBM_reg2.predict(x2)
+        linreg_test_predictions_z=lin_reg2.predict(x2)
+        neuralnet_predictions_z=modelnn3.predict(x2)
+        ##### Convert normalised values back to usual values for test set
+        n=data_trunc1.shape[0]
+        #from sklearn.linear_model import LinearRegression
+        modelx = LinearRegression()
+        modelx = LinearRegression().fit(np.asarray(trainingx_norm_col['xdir'][0:n]).reshape((-1, 1)),np.asarray(data_trunc1['xdir'][0:n]).reshape((-1, 1)))
+        print('intercept:', modelx.intercept_)
+        print('slope:', modelx.coef_)
+        data_trunc1['x_dir_check'] = modelx.coef_[0][0]*trainingx_norm_col['xdir'] + modelx.intercept_[0]
+        modely = LinearRegression()
+        modely = LinearRegression().fit(np.asarray(trainingx_norm_col['ydir'][0:n]).reshape((-1, 1)),np.asarray(data_trunc1['ydir'][0:n]).reshape((-1, 1)))
+        print('intercept:', modely.intercept_)
+        print('slope:', modely.coef_)
+        data_trunc1['y_dir_check'] = modely.coef_[0][0]*trainingx_norm_col['ydir'] + modely.intercept_[0]
+        modelz = LinearRegression()
+        modelz = LinearRegression().fit(np.asarray(trainingx_norm_col['zdir'][0:n]).reshape((-1, 1)),np.asarray(data_trunc1['zdir'][0:n]).reshape((-1, 1)))
+        print('intercept:', modelz.intercept_)
+        print('slope:', modelz.coef_)
+        data_trunc1['z_dir_check'] = modelz.coef_[0][0]*trainingx_norm_col['zdir'] + modelz.intercept_[0]
+    ##### return x,y,z back to original scale
+        orig_x_real = modelx.coef_[0][0]*np.asarray(y4) + modelx.intercept_[0]
+        orig_y_real = modely.coef_[0][0]*np.asarray(y5) + modely.intercept_[0]
+        orig_z_real = modelz.coef_[0][0]*np.asarray(y6) + modelz.intercept_[0]
+    # check if normalised
+        orig_x_GBM = modelx.coef_[0][0]*GBM_test_predictions_x + modelx.intercept_[0]
+        orig_y_GBM = modely.coef_[0][0]*GBM_test_predictions_y + modely.intercept_[0]
+        orig_z_GBM = modelz.coef_[0][0]*GBM_test_predictions_z + modelz.intercept_[0]
+        norm_x_GBM=[]
+        norm_y_GBM=[]
+        norm_z_GBM=[]
+        ### Normalise the reconstructed directions
+        for i in range(0,len(orig_x_GBM)):
+            norm_x_GBM.append(orig_x_GBM[i]/np.sqrt(orig_x_GBM[i]**2+orig_y_GBM[i]**2+orig_z_GBM[i]**2))
+            norm_y_GBM.append(orig_y_GBM[i]/np.sqrt(orig_x_GBM[i]**2+orig_y_GBM[i]**2+orig_z_GBM[i]**2))
+            norm_z_GBM.append(orig_z_GBM[i]/np.sqrt(orig_x_GBM[i]**2+orig_y_GBM[i]**2+orig_z_GBM[i]**2))
+        orig_x_GBM = np.asarray(norm_x_GBM)
+        orig_y_GBM = np.asarray(norm_y_GBM)
+        orig_z_GBM = np.asarray(norm_z_GBM)
+    # check if normalised
+        orig_x_NN = modelx.coef_[0][0]*neuralnet_predictions_x.reshape(len(neuralnet_predictions_x),) + modelx.intercept_[0]
+        orig_y_NN = modely.coef_[0][0]*neuralnet_predictions_y.reshape(len(neuralnet_predictions_y),) + modely.intercept_[0]
+        orig_z_NN = modelz.coef_[0][0]*neuralnet_predictions_z.reshape(len(neuralnet_predictions_z),) + modelz.intercept_[0]
+        norm_x_NN=[]
+        norm_y_NN=[]
+        norm_z_NN=[]
+        ### Normalise the reconstructed directions
+        for i in range(0,len(orig_x_NN)):
+            norm_x_NN.append(orig_x_NN[i]/np.sqrt(orig_x_NN[i]**2+orig_y_NN[i]**2+orig_z_NN[i]**2))
+            norm_y_NN.append(orig_y_NN[i]/np.sqrt(orig_x_NN[i]**2+orig_y_NN[i]**2+orig_z_NN[i]**2))
+            norm_z_NN.append(orig_z_NN[i]/np.sqrt(orig_x_NN[i]**2+orig_y_NN[i]**2+orig_z_NN[i]**2))
+        orig_x_NN = np.asarray(norm_x_NN)
+        orig_y_NN = np.asarray(norm_y_NN)
+        orig_z_NN = np.asarray(norm_z_NN)
+    # chek if normalised
+        orig_x_linreg = modelx.coef_[0][0]*linreg_test_predictions_x + modelx.intercept_[0]
+        orig_y_linreg = modely.coef_[0][0]*linreg_test_predictions_y + modely.intercept_[0]
+        orig_z_linreg = modelz.coef_[0][0]*linreg_test_predictions_z + modelz.intercept_[0]
+        norm_x_linreg=[]
+        norm_y_linreg=[]
+        norm_z_linreg=[]
+        ### Normalise the reconstructed directions
+        for i in range(0,len(orig_x_linreg)):
+            norm_x_linreg.append(orig_x_linreg[i]/np.sqrt(orig_x_linreg[i]**2+orig_y_linreg[i]**2+orig_z_linreg[i]**2))
+            norm_y_linreg.append(orig_y_linreg[i]/np.sqrt(orig_x_linreg[i]**2+orig_y_linreg[i]**2+orig_z_linreg[i]**2))
+            norm_z_linreg.append(orig_z_linreg[i]/np.sqrt(orig_x_linreg[i]**2+orig_y_linreg[i]**2+orig_z_linreg[i]**2))
+        orig_x_linreg = np.asarray(norm_x_linreg)
+        orig_y_linreg = np.asarray(norm_y_linreg)
+        orig_z_linreg = np.asarray(norm_z_linreg)
+        v1dotv2_GBM=orig_x_GBM*orig_x_real+orig_y_GBM*orig_y_real+orig_z_GBM*orig_z_real
+        v1dotv2_NN=orig_x_NN*orig_x_real+orig_y_NN*orig_y_real+orig_z_NN*orig_z_real
+        v1dotv2_linreg=orig_x_linreg*orig_x_real+orig_y_linreg*orig_y_real+orig_z_linreg*orig_z_real
+        real_vec_magnitude=np.sqrt(orig_x_real**2+orig_y_real**2+orig_z_real**2)
+        alpha_GBM=np.arccos(v1dotv2_GBM/real_vec_magnitude**2)
+        invalid_alpha_GBM.append(np.sum(np.isnan(alpha_GBM)))
+        print(invalid_alpha_GBM)
+        alpha_GBM=pd.Series(alpha_GBM)
+        alpha_GBM.replace(np.nan, 100, inplace=True)
+        alpha_GBM=alpha_GBM[alpha_GBM!=100]
+        alpha_NN=np.arccos(v1dotv2_NN/real_vec_magnitude**2)
+        invalid_alpha_NN.append(np.sum(np.isnan(alpha_NN)))
+        print(invalid_alpha_NN)
+        alpha_NN=pd.Series(alpha_NN)
+        alpha_NN.replace(np.nan, 100, inplace=True)
+        alpha_NN=alpha_NN[alpha_NN!=100]
+        alpha_linreg=np.arccos(v1dotv2_linreg/real_vec_magnitude**2)
+        invalid_alpha_linreg.append(np.sum(np.isnan(alpha_linreg)))
+        print(invalid_alpha_linreg)
+        alpha_linreg=pd.Series(alpha_linreg)
+        alpha_linreg.replace(np.nan, 100, inplace=True)
+        alpha_linreg=alpha_linreg[alpha_linreg!=100]
+        alpha_GBM_list.append(alpha_GBM)
+        alpha_NN_list.append(alpha_NN)
+        alpha_linreg_list.append(alpha_linreg)
+#       alpha_ML_list.append(alpha_ML)
+#       ML_alpha_mean_list.append(np.round(np.mean(alpha_ML),3))
+#       ML_alpha_std_list.append(np.round(np.std(alpha_ML),3))
+        linreg_alpha_mean_list.append(np.round(np.mean(alpha_linreg),3))
+        GBM_alpha_mean_list.append(np.round(np.mean(alpha_GBM),3))
+        NN_alpha_mean_list.append(np.round(np.mean(alpha_NN),3))
+        linreg_alpha_std_list.append(np.round(np.std(alpha_linreg),3))
+        GBM_alpha_std_list.append(np.round(np.std(alpha_GBM),3))
+        NN_alpha_std_list.append(np.round(np.std(alpha_NN),3))
+        #print(NN_alpha_std_list)
+    ##### Convert the real and reconstructed x,y,z values to theta and phi
+        real_reco_df=pd.DataFrame()
+        r=np.sqrt(orig_x_real**2+orig_y_real**2+orig_z_real**2)
+        theta_real = np.arccos(orig_z_real)
+        real_reco_df['r']=r
+        real_reco_df['theta']=theta_real
+        phi1=np.arctan(orig_y_real/orig_x_real)
+        real_reco_df['phi1']=phi1
+        real_reco_df['orig_x_real']=orig_x_real
+        real_reco_df['add_pi'] = np.where(real_reco_df['orig_x_real'] > 0, 0, real_reco_df['orig_x_real'])
+        real_reco_df['add_pi'] = np.where(real_reco_df['orig_x_real'] < 0, np.pi, real_reco_df['add_pi'])
+        real_reco_df['phi_real']=real_reco_df['phi1']+real_reco_df['add_pi']
+        real_reco_df['x_dir_check']=r*np.sin(real_reco_df['theta'])*np.cos(real_reco_df['phi_real'])
+        real_reco_df['y_dir_check']=r*np.sin(real_reco_df['theta'])*np.sin(real_reco_df['phi_real'])
+        real_reco_df['z_dir_check']=r*np.cos(real_reco_df['theta'])
+        #print(np.min(real_reco_df['phi_real'])*(180/np.pi))
+        #print(np.max(real_reco_df['phi_real'])*(180/np.pi))
+        #print(np.min(real_reco_df['theta'])*(180/np.pi))
+        #print(np.max(real_reco_df['theta'])*(180/np.pi))
+        real_reco_df['theta_deg']=real_reco_df['theta']*(180/np.pi)
+        real_reco_df['phi_deg']=real_reco_df['phi_real']*(180/np.pi)
+        #print(np.sum(np.round(real_reco_df['x_dir_check'],2)==np.round(orig_x_real,2)))
+        #print(np.sum(np.round(real_reco_df['y_dir_check'],2)==np.round(orig_y_real,2)))
+        #print(np.sum(np.round(real_reco_df['z_dir_check'],2)==np.round(orig_z_real,2)))
+        real_reco_df['phi_deg']=np.where(real_reco_df['phi_deg'] < 0,real_reco_df['phi_deg']+360, real_reco_df['phi_deg'])
+        GBM_reco_df=pd.DataFrame()
+        r=np.sqrt(orig_x_GBM**2+orig_y_GBM**2+orig_z_GBM**2)
+        theta_real = np.arccos(orig_z_GBM)
+        GBM_reco_df['theta']=theta_real
+        phi1=np.arctan(orig_y_GBM/orig_x_GBM)
+        GBM_reco_df['phi1']=phi1
+        GBM_reco_df['orig_x_GBM']=orig_x_GBM
+        GBM_reco_df['add_pi'] = np.where(GBM_reco_df['orig_x_GBM'] > 0, 0, GBM_reco_df['orig_x_GBM'])
+        GBM_reco_df['add_pi'] = np.where(GBM_reco_df['orig_x_GBM'] < 0, np.pi, GBM_reco_df['add_pi'])
+        GBM_reco_df['phi_real']=GBM_reco_df['phi1']+GBM_reco_df['add_pi']
+        GBM_reco_df['x_dir_check']=r*np.sin(GBM_reco_df['theta'])*np.cos(GBM_reco_df['phi_real'])
+        GBM_reco_df['y_dir_check']=r*np.sin(GBM_reco_df['theta'])*np.sin(GBM_reco_df['phi_real'])
+        GBM_reco_df['z_dir_check']=r*np.cos(GBM_reco_df['theta'])
+        np.min(GBM_reco_df['phi_real'])*(180/np.pi)
+        np.max(GBM_reco_df['phi_real'])*(180/np.pi)
+        np.min(GBM_reco_df['theta'])*(180/np.pi)
+        np.max(GBM_reco_df['theta'])*(180/np.pi)
+        GBM_reco_df['theta_deg']=GBM_reco_df['theta']*(180/np.pi)
+        GBM_reco_df['phi_deg']=GBM_reco_df['phi_real']*(180/np.pi)
+        #print(np.sum(np.round(GBM_reco_df['x_dir_check'],2)==np.round(orig_x_GBM,2)))
+        #print(np.sum(np.round(GBM_reco_df['y_dir_check'],2)==np.round(orig_y_GBM,2)))
+        #print(np.sum(np.round(GBM_reco_df['z_dir_check'],2)==np.round(orig_z_GBM,2)))
+        GBM_reco_df['phi_deg']=np.where(GBM_reco_df['phi_deg'] < 0, GBM_reco_df['phi_deg']+360, GBM_reco_df['phi_deg'])
+        NN_reco_df=pd.DataFrame()
+        r=np.sqrt(orig_x_NN**2+orig_y_NN**2+orig_z_NN**2)
+        theta_real = np.arccos(orig_z_NN)
+        NN_reco_df['theta']=theta_real
+        phi1=np.arctan(orig_y_NN/orig_x_NN)
+        NN_reco_df['phi1']=phi1
+        NN_reco_df['orig_x_NN']=orig_x_NN
+        NN_reco_df['add_pi'] = np.where(NN_reco_df['orig_x_NN'] > 0, 0, NN_reco_df['orig_x_NN'])
+        NN_reco_df['add_pi'] = np.where(NN_reco_df['orig_x_NN'] < 0, np.pi, NN_reco_df['add_pi'])
+        NN_reco_df['phi_real']=NN_reco_df['phi1']+NN_reco_df['add_pi']
+        NN_reco_df['x_dir_check']=r*np.sin(NN_reco_df['theta'])*np.cos(NN_reco_df['phi_real'])
+        NN_reco_df['y_dir_check']=r*np.sin(NN_reco_df['theta'])*np.sin(NN_reco_df['phi_real'])
+        NN_reco_df['z_dir_check']=r*np.cos(NN_reco_df['theta'])
+        np.min(NN_reco_df['phi_real'])*(180/np.pi)
+        np.max(NN_reco_df['phi_real'])*(180/np.pi)
+        np.min(NN_reco_df['theta'])*(180/np.pi)
+        np.max(NN_reco_df['theta'])*(180/np.pi)
+        NN_reco_df['theta_deg']=NN_reco_df['theta']*(180/np.pi)
+        NN_reco_df['phi_deg']=NN_reco_df['phi_real']*(180/np.pi)
+        print(np.sum(np.round(NN_reco_df['x_dir_check'],2)==np.round(orig_x_NN,2)))
+        print(np.sum(np.round(NN_reco_df['y_dir_check'],2)==np.round(orig_y_NN,2)))
+        print(np.sum(np.round(NN_reco_df['z_dir_check'],2)==np.round(orig_z_NN,2)))
+        NN_reco_df['phi_deg']=np.where(NN_reco_df['phi_deg'] < 0, NN_reco_df['phi_deg']+360, NN_reco_df['phi_deg'])
+        linreg_reco_df=pd.DataFrame()
+        r=np.sqrt(orig_x_linreg**2+orig_y_linreg**2+orig_z_linreg**2)
+        theta_real = np.arccos(orig_z_linreg)
+        linreg_reco_df['theta']=theta_real
+        phi1=np.arctan(orig_y_linreg/orig_x_linreg)
+        linreg_reco_df['phi1']=phi1
+        linreg_reco_df['orig_x_linreg']=orig_x_linreg
+        linreg_reco_df['add_pi'] = np.where(linreg_reco_df['orig_x_linreg'] > 0, 0, linreg_reco_df['orig_x_linreg'])
+        linreg_reco_df['add_pi'] = np.where(linreg_reco_df['orig_x_linreg'] < 0, np.pi, linreg_reco_df['add_pi'])
+        linreg_reco_df['phi_real']=linreg_reco_df['phi1']+linreg_reco_df['add_pi']
+        linreg_reco_df['x_dir_check']=r*np.sin(linreg_reco_df['theta'])*np.cos(linreg_reco_df['phi_real'])
+        linreg_reco_df['y_dir_check']=r*np.sin(linreg_reco_df['theta'])*np.sin(linreg_reco_df['phi_real'])
+        linreg_reco_df['z_dir_check']=r*np.cos(linreg_reco_df['theta'])
+        np.min(linreg_reco_df['phi_real'])*(180/np.pi)
+        np.max(linreg_reco_df['phi_real'])*(180/np.pi)
+        np.min(linreg_reco_df['theta'])*(180/np.pi)
+        np.max(linreg_reco_df['theta'])*(180/np.pi)
+        linreg_reco_df['theta_deg']=linreg_reco_df['theta']*(180/np.pi)
+        linreg_reco_df['phi_deg']=linreg_reco_df['phi_real']*(180/np.pi)
+        #print(np.sum(np.round(linreg_reco_df['x_dir_check'],2)==np.round(orig_x_linreg,2)))
+        #print(np.sum(np.round(linreg_reco_df['y_dir_check'],2)==np.round(orig_y_linreg,2)))
+        #print(np.sum(np.round(linreg_reco_df['z_dir_check'],2)==np.round(orig_z_linreg,2)))
+        linreg_reco_df['phi_deg']=np.where(linreg_reco_df['phi_deg'] < 0, linreg_reco_df['phi_deg']+360, linreg_reco_df['phi_deg'])
+        linreg_theta_diff=real_reco_df['theta_deg']-linreg_reco_df['theta_deg']
+        invalid_linreg_theta.append(np.sum(np.isnan(linreg_theta_diff)))
+        linreg_theta_diff.replace(np.nan, 0, inplace=True)
+        linreg_theta_diff=linreg_theta_diff[linreg_theta_diff!=0]
+        linreg_phi_diff=real_reco_df['phi_deg']-linreg_reco_df['phi_deg']
+        linreg_phi_diff=np.where(linreg_phi_diff > 300, 360-linreg_phi_diff, linreg_phi_diff)
+        linreg_phi_diff=np.where(linreg_phi_diff < -300, 360+linreg_phi_diff, linreg_phi_diff)
+        linreg_phi_diff=pd.Series(linreg_phi_diff)
+        invalid_linreg_phi.append(np.sum(np.isnan(linreg_phi_diff)))
+        linreg_phi_diff.replace(np.nan, 0, inplace=True)
+        linreg_phi_diff=linreg_phi_diff[linreg_phi_diff!=0]
+        GBM_theta_diff=real_reco_df['theta_deg']-GBM_reco_df['theta_deg']
+        invalid_GBM_theta.append(np.sum(np.isnan(GBM_theta_diff)))
+        GBM_theta_diff.replace(np.nan, 0, inplace=True)
+        GBM_theta_diff=GBM_theta_diff[GBM_theta_diff!=0]
+        GBM_phi_diff=real_reco_df['phi_deg']-GBM_reco_df['phi_deg']
+        GBM_phi_diff=np.where(GBM_phi_diff > 300, 360-GBM_phi_diff, GBM_phi_diff)
+        GBM_phi_diff=np.where(GBM_phi_diff < -300, 360+GBM_phi_diff, GBM_phi_diff)
+        GBM_phi_diff=pd.Series(GBM_phi_diff)
+        invalid_GBM_phi.append(np.sum(np.isnan(GBM_phi_diff)))
+        GBM_phi_diff.replace(np.nan, 0, inplace=True)
+        GBM_phi_diff=GBM_phi_diff[GBM_phi_diff!=0]
+        NN_theta_diff=real_reco_df['theta_deg']-NN_reco_df['theta_deg']
+        invalid_NN_theta.append(np.sum(np.isnan(NN_theta_diff)))
+        NN_theta_diff.replace(np.nan, 0, inplace=True)
+        NN_theta_diff=NN_theta_diff[NN_theta_diff!=0]
+        NN_phi_diff=real_reco_df['phi_deg']-NN_reco_df['phi_deg']
+        NN_phi_diff=np.where(NN_phi_diff > 300, 360-NN_phi_diff, NN_phi_diff)
+        NN_phi_diff=np.where(NN_phi_diff < -300, 360+NN_phi_diff, NN_phi_diff)
+        NN_phi_diff=pd.Series(NN_phi_diff)
+        invalid_NN_phi.append(np.sum(np.isnan(NN_phi_diff)))
+        NN_phi_diff.replace(np.nan, 0, inplace=True)
+        NN_phi_diff=NN_phi_diff[NN_phi_diff!=0]
+    flat_linreg_alpha_list = [item for sublist in alpha_linreg_list for item in sublist]
+    flat_GBM_alpha_list = [item for sublist in alpha_GBM_list for item in sublist]
+    flat_NN_alpha_list = [item for sublist in alpha_NN_list for item in sublist]
+    nbins=50
+    plt.figure(figsize=(10, 7))
+    #plt.title('Opening angle alpha')
+    plt.hist(np.asarray(flat_linreg_alpha_list)*(180/np.pi),alpha=0.5,bins=nbins,color="green",label='linreg alpha, mean= '+str(np.round(np.mean(np.asarray(linreg_alpha_mean_list)*180/np.pi),3))+'+/-'+str(np.round(np.std(np.asarray(linreg_alpha_mean_list)*180/np.pi),3))+', std= ' +str(np.round(np.mean(np.asarray(linreg_alpha_std_list)*180/np.pi),3))+'+/-'+str(np.round(np.std(np.asarray(linreg_alpha_std_list)*180/np.pi),3)))
+    plt.hist(np.asarray(flat_GBM_alpha_list)*(180/np.pi),alpha=0.5,bins=nbins,color="blue",label='GBM alpha, mean= '+str(np.round(np.mean(np.asarray(GBM_alpha_mean_list)*180/np.pi),3))+'+/-'+str(np.round(np.std(np.asarray(GBM_alpha_mean_list)*180/np.pi),3))+', std= ' +str(np.round(np.mean(np.asarray(GBM_alpha_std_list)*180/np.pi),3))+'+/-'+str(np.round(np.std(np.asarray(GBM_alpha_std_list)*180/np.pi),3)))
+    plt.hist(np.asarray(flat_NN_alpha_list)*(180/np.pi),alpha=0.5,bins=nbins,color="orange",label='NN alpha, mean= '+str(np.round(np.mean(np.asarray(NN_alpha_mean_list)*180/np.pi),3))+'+/-'+str(np.round(np.std(np.asarray(NN_alpha_mean_list)*180/np.pi),3))+', std= ' +str(np.round(np.mean(np.asarray(NN_alpha_std_list)*180/np.pi),3))+'+/-'+str(np.round(np.std(np.asarray(NN_alpha_std_list)*180/np.pi),3)))
+    plt.xlabel('Alpha [deg]',fontsize=20)
+    plt.ylabel('Number of runs',fontsize=20)
+    plt.xticks(fontsize=15)
+    plt.yticks(fontsize=15)
+    plt.legend(fontsize=15)
+    plt.tight_layout()
+    plt.savefig(save_path+reconstruction_plot+'.png')
+    #plt.savefig(path+'Histogram_alpha_all_own_signal_properties_efficient_2000_4_recs_vf'+str(n_iter_all)+'_'+str(n_epochs)+'_'+str(batchsize)+'_dummy_check_23_6_22.png')
+    plt.close()
+    plt.subplot(311)
+    plt.plot(train_loss_x,label='Training loss xdir')
+    plt.plot(valid_loss_x,label='Validation loss xdir')
+    plt.subplot(312)
+    plt.plot(train_loss_y,label='Training loss ydir')
+    plt.plot(valid_loss_y,label='Validation loss ydir')
+    plt.subplot(313)
+    plt.plot(train_loss_z,label='Training loss zdir')
+    plt.plot(valid_loss_z,label='Validation loss zdir')
+    plt.title('Training and validation loss vs epoch')
+    plt.ylabel('Loss')
+    plt.xlabel('Epoch')
+    plt.legend(['Training', 'Validation'], loc='upper left')
+    plt.savefig(save_path+NN_train_val_loss+'.png')
+    plt.close()
+    return flat_linreg_alpha_list,flat_GBM_alpha_list,flat_NN_alpha_list
+
 if __name__ == "__main__":
     import os
     import argparse
 
-    parser = argparse.ArgumentParser(description="Plot signal properties vs direction")
-    parser.add_argument('--save_path', default='/Users/vesnalukic/Desktop/Reconstruction/')
+    parser = argparse.ArgumentParser(description="Plot signal properties vs direction and/or perform reconstruction")
+    parser.add_argument('--save_path', default='/Users/vesnalukic/Desktop/Reconstruction/',type=str)
+    parser.add_argument('--plot_properties', default='True',type=str)
+    parser.add_argument('--reconstruct', default='True',type=str)
+    parser.add_argument('--NN_train_val_loss', default='Train_validation_loss',type=str)
+    parser.add_argument('--reconstruction_plot', default='Reconstruction_histogram',type=str)
     parser.add_argument('--signal_files', default='*_numbers_only2.txt')
     parser.add_argument('--time_file', default='four_receivers_change_dir_fillbyEvent0_manual_1000_50MHz_10_events_to_run_100_GeV_primary_best_dir_sim_10_PeV_400ns_window_vpol_time.txt')
     parser.add_argument('--directions', default='four_recs_rand_dir.csv')
@@ -341,16 +806,41 @@ rise_time,fall_time=rise_fall_time(data,time_vals,args.thres1,args.thres2)
 bandwidths=bandwidth_recs(data,args.sample_rate,args.thres_bandwidth)
 max_amp_freqs,half_amp_freqs,at_amp_freqs,twice_amp_freqs=fft_amps(data,args.sample_rate,args.tf)
            
-print('Plotting properties')
-plot_properties(int_array,'Intensity_n_1p78_zpol',args.save_path,1,5)
-plot_properties(arrival_at_recs,'Arrival_time_n_1p78_zpol',args.save_path,1,5)
-plot_properties(peakfreqs,'peakFreq_n_1p78_zpol',args.save_path,1,5)
-plot_properties(rise_time,'Rise_time_n_1p78_zpol',args.save_path,1,5)
-plot_properties(fall_time,'Fall_time_n_1p78_zpol',args.save_path,1,5)
-plot_properties(bandwidths,'Bandwidth_n_1p78_zpol',args.save_path,1,5)
-plot_properties(max_amp_freqs,'Max_fft_amplitude_n_1p78_zpol',args.save_path,1,5)
-plot_properties(half_amp_freqs,'Amplitude_at_0.5tf_n_1p78_zpol',args.save_path,1,5)
-plot_properties(at_amp_freqs,'Amplitude_at_tf_n_1p78_zpol',args.save_path,1,5)
-plot_properties(twice_amp_freqs,'Amplitude_at_2tf_n_1p78_zpol',args.save_path,1,5)
+df_list=[]
 
-print('Done!')
+for i in range(0,data.shape[0]):
+    print(i)
+    df_list.append(np.asarray([int_array[i],arrival_at_recs[i],peakfreqs[i],rise_time[i],fall_time[i],bandwidths[i],max_amp_freqs[i],max_amp_freqs[i],half_amp_freqs[i],at_amp_freqs[i],twice_amp_freqs[i]]))
+
+l = np.vstack(df_list)
+
+all_df=pd.DataFrame(l.T)
+           
+all_df['xdir']=xdir
+all_df['ydir']=ydir
+all_df['zdir']=zdir
+           
+if (args.plot_properties=='True'):
+           
+    print('Plotting properties')
+    plot_properties(int_array,'Intensity_n_1p78_zpol',args.save_path,1,5)
+    plot_properties(arrival_at_recs,'Arrival_time_n_1p78_zpol',args.save_path,1,5)
+    plot_properties(peakfreqs,'peakFreq_n_1p78_zpol',args.save_path,1,5)
+    plot_properties(rise_time,'Rise_time_n_1p78_zpol',args.save_path,1,5)
+    plot_properties(fall_time,'Fall_time_n_1p78_zpol',args.save_path,1,5)
+    plot_properties(bandwidths,'Bandwidth_n_1p78_zpol',args.save_path,1,5)
+    plot_properties(max_amp_freqs,'Max_fft_amplitude_n_1p78_zpol',args.save_path,1,5)
+    plot_properties(half_amp_freqs,'Amplitude_at_0.5tf_n_1p78_zpol',args.save_path,1,5)
+    plot_properties(at_amp_freqs,'Amplitude_at_tf_n_1p78_zpol',args.save_path,1,5)
+    plot_properties(twice_amp_freqs,'Amplitude_at_2tf_n_1p78_zpol',args.save_path,1,5)
+
+    print('Signal properties plotted vs phi and theta')
+    
+if (args.reconstruct=='True'):
+
+    print('Performing reconstruction')
+    
+    linreg_alpha_list,GBM_alpha_list,NN_alpha_list=reconstruct(all_df,5,200,256,args.save_path,args.NN_train_val_loss,args.reconstruction_plot)
+    
+else:
+    print('Please specify plotting properties and/or reconstruction')
