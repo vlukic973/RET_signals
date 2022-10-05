@@ -6,9 +6,8 @@ The code (Plot_signal_properties_and_reconstruct.py) is able to plot signal prop
 
 Prior to running the python code, please use the RET_signals_env.yaml file provided by supplying the following commands on the command-line:
 
-conda env create -f RET_signals_env.yaml
-
-conda activate RET_signals
+`conda env create -f RET_signals_env.yaml`
+`conda activate RET_signals`
 
 Also download the other data provided, given in the text and csv files.
 
