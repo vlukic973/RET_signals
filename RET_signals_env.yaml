@@ -1,0 +1,10 @@
+# You may add dependencies, but please don't remove any!
+name: RET_signals
+dependencies:
+  - pandas
+  - python=3.7
+  - tensorflow
+  - keras
+  - pydocstyle
+  - scikit-learn
+  - matplotlib
