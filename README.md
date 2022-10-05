@@ -24,7 +24,7 @@ With the data provided it is possible to plot the signal properties and/or perfo
 
 To plot the signal properties and perform reconstruction with the 4-receiver data, the following command should be run. The default settings in this function load the 4-receiver data, and have the setting on for both plotting properties and performing the reconstruction.
 
-python Plot_signal_properties_and_reconstruct.py
+`python Plot_signal_properties_and_reconstruct.py`
 
 The signal properties as a function of direction given in phi and theta, such as peak frequency and arrival time, are given in files ending in '_n_1p78_zpol_rec1_5.png'.
 
@@ -38,4 +38,4 @@ The csv file 'remove_intensity_outliers_no_pos_non_zero_freqs.csv' contains the 
 
 With the data provided it is possible to do reconstruction only. The command to do so is given below
 
-python Plot_signal_properties_and_reconstruct.py --reconstruct_27_recs 'True' --plot_properties 'False' --reconstruct_4_recs 'False'
+`python Plot_signal_properties_and_reconstruct.py --reconstruct_27_recs 'True' --plot_properties 'False' --reconstruct_4_recs 'False'`
