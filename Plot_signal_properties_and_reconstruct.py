@@ -19,7 +19,6 @@ from tensorflow.keras.layers import Activation, Dropout, Dense
 from keras.layers import Flatten, LSTM
 from keras.layers import GlobalMaxPooling1D
 from keras.models import Model
-from keras.layers.embeddings import Embedding
 from sklearn.model_selection import train_test_split
 from tensorflow.keras import layers, models
 from tensorflow.keras.models import Sequential
