@@ -14,7 +14,7 @@ Also download the other data provided, given in the text and csv files.
 
 ## 4-receiver data
 
-<img width="800" alt="four_receiver_setup_v3" src="https://user-images.githubusercontent.com/42998963/194073362-01943ccf-f2ef-4254-a974-daf4daa20d16.png">
+<img width="700" alt="four_receiver_setup_v3" src="https://user-images.githubusercontent.com/42998963/194073362-01943ccf-f2ef-4254-a974-daf4daa20d16.png">
 
 The data provided includes the signals generated across 4 receivers in the 'cross' setup, beginning with '_numbers_only2.txt'. There are 990 runs in total, each with an associated direction (given in four_recs_rand_dir.csv) and signal. The signals in the file '_numbers_only2.txt' are appended one after the other.
 
