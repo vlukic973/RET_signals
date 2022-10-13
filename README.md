@@ -1,6 +1,6 @@
 # Radar Echo Telescope (RET) signal properties and reconstruction
 
-This repository contains code for generating RadioScatter signals, plotting signal properties, and reconstruction. 
+This repository contains code for generating RadioScatter signals, extracting and plotting signal properties, and performing reconstruction. 
 
 ## Generating voltage-time traces
 
@@ -38,9 +38,7 @@ After the voltage-time traces, and (if position is varied) time vector are gener
 
 This can be done using the script 'Save_np_arrays_of_voltage_time_traces.py', which produces a .npy array for every receiver individually. 
 
-These arrays can then be read into python, using a script like 'Read_np_arrays_save_csv.py'. This script generates the signal properties, producing a csv file. The one generated in the example is called 'all_df_10000_n1p78_27_recs_relative_position_energy_included.csv'. This makes a file with 10 properties for each of the 27 receivers, giving 270 columns in total. Additionally, there are extra columns giving the relative positions in terms of theta and phi with respect to each receiver and the transmitter, as well as the energy. The final 3 columns are the x,y,z directions - the outputs for the reconstruction. A cleaner file, called 'remove_intensity_outliers_no_pos_non_zero_freqs.csv' is the csv file where outliers in intensity have been removed and any peak frequency with a value of 0 is also removed.
-
-to produce the signal properties and perform reconstruction
+These arrays can then be read into python, using a script like 'Read_np_arrays_save_csv.py'. This script generates the signal properties, producing a csv file. The one generated in the example is called 'all_df_10000_n1p78_27_recs_relative_position_energy_included.csv'. This makes a file with 10 properties for each of the 27 receivers, giving 270 columns in total. Additionally, there are extra columns giving the relative positions in terms of theta and phi with respect to each receiver and the transmitter, as well as the energy. The final 3 columns are the x,y,z directions - the outputs for the reconstruction. A cleaner file, called 'remove_intensity_outliers_no_pos_non_zero_freqs.csv' is the csv file where outliers in intensity and any peak frequency with a value of 0 are removed.
 
 ## Extracting signal properties and reconstruction
 
