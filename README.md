@@ -18,13 +18,13 @@ If the files have finished running successfully on the cluster, they will produc
 
 Assuming all the files have run successfully, one can extract the voltage-time traces from the root files.
 
-To show how this is done by example, one a script like the provided Extract_individual_voltage_time_rec1_case_1.sh script. That script generates the voltage-time traces for receiver 1. There will be 10000 text files created, where there is one voltage-time trace per text file. Similarly, the other 26 scripts can be run to generate data for the remaining 26 receivers.
+To show how this is done by example, use a script like the provided Extract_individual_voltage_time_rec1_case_1.sh, which generates the voltage-time traces for receiver 1. There will be 10000 text files created, where there is one voltage-time trace per text file. Similarly, the other 26 scripts can be run to generate data for the remaining 26 receivers.
 
-These scripts should all have the following pattern Extract_individual_voltage_time_rec${i}_case_1.sh, where i goes from 1 to 27. The shell script calls a function written in C, to extract the individual voltage-time traces. They are done individually because it can happen that occasionally a single voltage-time trace is truncated, therefore it needs to be padded.  
+These scripts should all have the following pattern 'Extract_individual_voltage_time_rec\${i}\_case_1.sh', where i goes from 1 to 27. The shell script calls a function written in C, to extract the individual voltage-time traces. They are done individually because it can happen that occasionally a single voltage-time trace is truncated, therefore it needs to be padded.  
 
 Within this script, there are 10,000 lines that look like the following:
 
-root -b -q 'textRunThrough.C("/pnfs/iihe/radar/store/user/vlukic/case_1/twenty_seven_rec_macro_50_MHz_n_1p78_case_1_0.root",0,1,0,0)' >> /pnfs/iihe/radar/store/user/vlukic/case_1/voltage_time_traces/receiver_1_27_recs_vary_pos_dir_energy_0.txt
+`root -b -q 'textRunThrough.C("/pnfs/iihe/radar/store/user/vlukic/case_1/twenty_seven_rec_macro_50_MHz_n_1p78_case_1_0.root",0,1,0,0)' >> /pnfs/iihe/radar/store/user/vlukic/case_1/voltage_time_traces/receiver_1_27_recs_vary_pos_dir_energy_0.txt`
 
 That particular line (the first one in the file) will extract the voltage-time trace for receiver 1, run 1 of 10,000.
 
