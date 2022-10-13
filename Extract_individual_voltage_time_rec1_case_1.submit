@@ -1,0 +1,12 @@
+executable = Extract_individual_voltage_time_rec1_case_1.sh
+
+log = Extract_individual_voltage_time_rec1_case_1.log
+output = Extract_individual_voltage_time_rec1_case_1.out
+error = Extract_individual_voltage_time_rec1_case_1.err
+getenv = TRUE
+
+request_cpus = 1
+request_memory = 4GB
+request_disk = 4GB
+
+queue 1
