@@ -809,7 +809,7 @@ df_list=[]
 
 for i in range(0,data.shape[0]):
     print(i)
-    df_list.append(np.asarray([int_array[i],arrival_at_recs[i],peakfreqs[i],rise_time[i],fall_time[i],bandwidths[i],max_amp_freqs[i],max_amp_freqs[i],half_amp_freqs[i],at_amp_freqs[i],twice_amp_freqs[i]]))
+    df_list.append(np.asarray([int_array[i],arrival_at_recs[i],peakfreqs[i],rise_time[i],fall_time[i],bandwidths[i],max_amp_freqs[i],half_amp_freqs[i],at_amp_freqs[i],twice_amp_freqs[i]]))
 
 l = np.vstack(df_list)
 
