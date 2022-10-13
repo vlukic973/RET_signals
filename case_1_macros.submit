@@ -1,0 +1,16 @@
+executable = nrt
+arguments = -m /user/vlukic/software/geant4/geant4.10.06.p03/nrt_build2/case_1_macros/twenty_seven_rec_macro_50_MHz_n_1p78_case_1_$(Process).mac -f /pnfs/iihe/radar/store/user/vlukic/case_1/twenty_seven_rec_macro_50_MHz_n_1p78_case_1_$(Process).root
+
+should_transfer_files = YES
+transfer_input_files = /user/vlukic/software/geant4/geant4.10.06.p03/nrt_build2/case_1_macros/twenty_seven_rec_macro_50_MHz_n_1p78_case_1_$(Process).mac
+when_to_transfer_output = ON_EXIT
+
+log = /user/vlukic/software/geant4/geant4.10.06.p03/nrt_build2/case_1_macros/twenty_seven_rec_macro_50_MHz_n_1p78_case_1_$(Process).log
+output = /user/vlukic/software/geant4/geant4.10.06.p03/nrt_build2/case_1_macros/twenty_seven_rec_macro_50_MHz_n_1p78_case_1_$(Process).out
+error = /user/vlukic/software/geant4/geant4.10.06.p03/nrt_build2/case_1_macros/twenty_seven_rec_macro_50_MHz_n_1p78_case_1_$(Process).err
+
+request_cpus = 1
+request_memory = 4GB
+request_disk = 4GB
+
+queue 10000
