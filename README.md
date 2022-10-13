@@ -4,9 +4,9 @@ This repository contains code for generating RadioScatter signals, plotting sign
 
 ## Generating voltage-time traces
 
-The script 'Generate_RadioScatter_macros.py' generates the macro files needed to run RadioScatter. It allows the user to specify the name of the macros, how many files they want to generate, whether to vary or keep constant the position, direction and energy of the primary. The specific example provided generates data for 27 receivers, with energy at 1e18 eV, and position (0,100,10) m, with 1000 runs in total. 
+The script 'Generate_RadioScatter_macros.py' generates the macro files needed to run RadioScatter. It allows the user to specify the name of the macros, how many files they want to generate, whether to vary or keep constant the position, direction and energy of the primary. The specific example provided generates data for 27 receivers, with energy at 1e18 eV, and position (0,100,10) m, with 10000 runs in total. 
 
-The generated macros, having the file string twenty_seven_rec_macro_50_MHz_n_1p78_case_1_* should then be copied onto the cluster, where RadioScatter can be run on them (through Geant4), using the following example submission file.
+The generated macros, containing the file string twenty_seven_rec_macro_50_MHz_n_1p78_case_1_* should then run on cluster, where RadioScatter can be run on them (through Geant4), using the following example submission file.
 
 The case_1_macros.submit script can be submitted to the ht_condor cluster using the following command:
 
