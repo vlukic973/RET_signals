@@ -10,11 +10,11 @@ The generated macros, containing the file string twenty_seven_rec_macro_50_MHz_n
 
 The case_1_macros.submit script can be submitted to the ht_condor cluster using the following command:
 
-condor_submit case_1_macros.submit
+`condor_submit case_1_macros.submit`
 
 The submission file must be run from a folder that has the nrt or slac executable. For the example provided it submits 10000 jobs, using the $(Process) command (specifying queue 10000). What must be specified in the submission file is the location of the macros on the cluster, the desired location of the resulting .root files, as well as the name of the .log, .out and .err files.
 
-If the files have finished running successfully on the cluster, they will produce a *_summary.root file. 
+If the files have finished running successfully on the cluster, they will produce a '*_summary.root' file. 
 
 Assuming all the files have run successfully, one can extract the voltage-time traces from the root files.
 
